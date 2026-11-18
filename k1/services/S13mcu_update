@@ -5,9 +5,76 @@ VERSION_FILE=/usr/data/mcu.versions
 LOG_FILE=/tmp/mcu_update.log
 FW_ROOT_DIR=/usr/share/klipper/fw
 
+# RISC-V K1 (CH32V nozzle/bed + X2600 IPC main MCU) flashes via cmd_iap, not
+# mcu_util. Its firmware images live in fw/K1-RISCV and use the stock Creality
+# names (klipper_nozzle_serial_app.bin / klipper_leveling_serial_app.bin).
+RISCV_IAP=/usr/bin/cmd_iap
+RISCV_FW_DIR=K1-RISCV
+
 RET_SUCCESS=0
 RET_TIMEOUT=1
 RET_ERROR=2
+
+# Detect the RISC-V K1 revision: cmd_iap exists and the RISC-V nozzle/bed
+# serial devices are present. This is independent of the GD32 board ID.
+is_riscv_k1() {
+    [ -x "$RISCV_IAP" ] && [ -e /dev/ttyS3 ] && [ -e /dev/ttyS4 ] \
+        && [ -d "$FW_ROOT_DIR/$RISCV_FW_DIR" ]
+}
+
+# Flash one RISC-V MCU through the IAP bootloader.
+#   $1 = device type (0xA1 nozzle, 0xA3 leveling)
+#   $2 = tty device
+#   $3 = firmware image path
+riscv_flash() {
+    local dtype=$1 tty=$2 fw=$3
+    [ -f "$fw" ] || { write_log "riscv: no image $fw"; return $RET_ERROR; }
+    write_log "riscv: flashing $fw to $tty (type $dtype)"
+    local output=$($RISCV_IAP --device "$tty" --baudrate 230400 \
+        --dtype "$dtype" --upgrade --firmware "$fw" 2>&1)
+    local ret=$?
+    write_log "$output"
+    if [ $ret -ne $RET_SUCCESS ]; then
+        write_log "riscv: flash $tty failed ret=$ret"
+    else
+        write_log "riscv: flash $tty success"
+    fi
+    return $ret
+}
+
+# Update the RISC-V nozzle + bed MCUs if the packaged images differ from what
+# is recorded. The stock bootloader always re-flashes on --upgrade, so we gate
+# on a recorded checksum to avoid flashing on every boot.
+riscv_update() {
+    mkdir -p "$(dirname "$VERSION_FILE")"
+    local noz_fw=$FW_ROOT_DIR/$RISCV_FW_DIR/klipper_nozzle_serial_app.bin
+    local bed_fw=$FW_ROOT_DIR/$RISCV_FW_DIR/klipper_leveling_serial_app.bin
+
+    local noz_sum= bed_sum=
+    [ -f "$noz_fw" ] && noz_sum=$(md5sum "$noz_fw" | awk '{print $1}')
+    [ -f "$bed_fw" ] && bed_sum=$(md5sum "$bed_fw" | awk '{print $1}')
+
+    local old_noz= old_bed=
+    [ -f "$VERSION_FILE.riscv" ] && . "$VERSION_FILE.riscv"
+    old_noz=$RISCV_NOZ_MD5
+    old_bed=$RISCV_BED_MD5
+
+    if [ -n "$noz_sum" ] && [ "$noz_sum" != "$old_noz" ]; then
+        if riscv_flash 0xA1 /dev/ttyS3 "$noz_fw"; then
+            RISCV_NOZ_MD5=$noz_sum
+        fi
+    fi
+    if [ -n "$bed_sum" ] && [ "$bed_sum" != "$old_bed" ]; then
+        if riscv_flash 0xA3 /dev/ttyS4 "$bed_fw"; then
+            RISCV_BED_MD5=$bed_sum
+        fi
+    fi
+
+    {
+        echo "RISCV_NOZ_MD5=${RISCV_NOZ_MD5:-$old_noz}"
+        echo "RISCV_BED_MD5=${RISCV_BED_MD5:-$old_bed}"
+    } > "$VERSION_FILE.riscv"
+}
 
 write_log() {
     [ -e $LOG_FILE ] || touch $LOG_FILE
@@ -115,6 +182,13 @@ fw_update() {
 }
 
 auto_update() {
+    # RISC-V K1 revision: handle separately and return (no GD32 mcu_util path).
+    if is_riscv_k1; then
+        write_log "Detected RISC-V K1; using cmd_iap update path"
+        riscv_update
+        return $?
+    fi
+
     local model=$(get_sn_mac.sh model)
     local board=$(get_sn_mac.sh board)
 
@@ -261,10 +335,13 @@ auto_update() {
     fi
 }
 
-[ -x $PROG ] || {
-    echo "not found $PROG!"
-    exit 1
-}
+# mcu_util is only required for the GD32 path; the RISC-V path uses cmd_iap.
+if ! is_riscv_k1; then
+    [ -x $PROG ] || {
+        echo "not found $PROG!"
+        exit 1
+    }
+fi
 
 case "$1" in
     start)
