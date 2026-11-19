@@ -133,13 +133,24 @@ fi
 # so we can do ~/pellcorp/ paths in the wiki
 ln -sf /usr/data/pellcorp/ /root
 
-REMAINING_ROOT_DISK=$(df -m / | tail -1 | awk '{print $4}')
-if [ $REMAINING_ROOT_DISK -gt 25 ]; then
-    echo "INFO: There is $(df -h / | tail -1 | awk '{print $4}') remaining on your / partition"
+# A read-only root (squashfs) always reports 0 free, which is not "full".
+# Only enforce the free-space check when / is actually writable.
+ROOT_RO=$(awk '$2 == "/" { print $4 }' /proc/mounts | head -1)
+case ",$ROOT_RO," in
+  *",ro,"*) IS_RO=1 ;;
+  *)         IS_RO=0 ;;
+esac
+if [ "$IS_RO" = "1" ]; then
+    echo "INFO: / is read-only (squashfs), skipping free-space check"
 else
-    echo "CRITICAL: Remaining / space is critically low!"
-    echo "CRITICAL: There is $(df -h / | tail -1 | awk '{print $4}') remaining on your / partition"
-    exit 1
+    REMAINING_ROOT_DISK=$(df -m / | tail -1 | awk '{print $4}')
+    if [ $REMAINING_ROOT_DISK -gt 25 ]; then
+        echo "INFO: There is $(df -h / | tail -1 | awk '{print $4}') remaining on your / partition"
+    else
+        echo "CRITICAL: Remaining / space is critically low!"
+        echo "CRITICAL: There is $(df -h / | tail -1 | awk '{print $4}') remaining on your / partition"
+        exit 1
+    fi
 fi
 
 REMAINING_TMP_DISK=$(df -m /tmp | tail -1 | awk '{print $4}')
