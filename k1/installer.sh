@@ -572,12 +572,12 @@ function install_boot_display() {
     if [ "$model" = "k1" ] || [ "$model" = "k1m" ] || [ "$model" = "f001" ]; then
       rm -rf /etc/boot-display/*
       cp /usr/data/pellcorp/k1/boot-display.conf /etc/boot-display/
-      tar -zxf /usr/data/pellcorp/k1/boot-display.tar.gz -C /usr/data/boot-display || exit $?
+      gzip -dc /usr/data/pellcorp/k1/boot-display.tar.gz | tar -xf - -C /usr/data/boot-display || exit $?
       ln -s /usr/data/boot-display/part0 /etc/boot-display/
     elif [ "$MODEL" = "F005" ] || [ "$MODEL" = "F003" ]; then # default boot display for Ender 3 V3 and Ender 5 Max for now
       rm -rf /etc/boot-display/*
       cp /usr/data/pellcorp/k1/boot-display-nebula.conf /etc/boot-display/boot-display.conf
-      tar -zxf /usr/data/pellcorp/k1/boot-display-nebula.tar.gz -C /usr/data/boot-display || exit $?
+      gzip -dc /usr/data/pellcorp/k1/boot-display-nebula.tar.gz | tar -xf - -C /usr/data/boot-display || exit $?
       ln -s /usr/data/boot-display/part0 /etc/boot-display/
     fi
 
@@ -614,7 +614,7 @@ function install_webcam() {
 
       # just update them every time
       mkdir -p /usr/data/ustreamer
-      tar -zxf /usr/data/pellcorp/k1/packages/ustreamer.tar.gz -C /usr/data/ustreamer/ || exit $?
+      gzip -dc /usr/data/pellcorp/k1/packages/ustreamer.tar.gz | tar -xf - -C /usr/data/ustreamer/ || exit $?
 
       echo
       echo "INFO: Updating webcam config ..."
@@ -662,7 +662,7 @@ function install_moonraker() {
                 echo "INFO: Backing up moonraker database ..."
                 cd /usr/data/printer_data/
 
-                tar -zcf /usr/data/moonraker-database.tar.gz database/
+                tar -cf - database/ | gzip > /usr/data/moonraker-database.tar.gz
                 cd
             fi
             rm -rf /usr/data/moonraker
@@ -706,7 +706,7 @@ function install_moonraker() {
                 echo
                 echo "INFO: Restoring moonraker database ..."
                 cd /usr/data/printer_data/
-                tar -zxf /usr/data/moonraker-database.tar.gz
+                gzip -dc /usr/data/moonraker-database.tar.gz | tar -xf -
                 rm /usr/data/moonraker-database.tar.gz
                 cd
             fi
@@ -727,7 +727,7 @@ function install_moonraker() {
         cp /usr/data/pellcorp/k1/tools/ffmpeg-shim /usr/bin/
 
         if [ ! -d /usr/data/moonraker-env ]; then
-            tar -zxf /usr/data/pellcorp/k1/moonraker-env.tar.gz -C /usr/data/ || exit $?
+            gzip -dc /usr/data/pellcorp/k1/moonraker-env.tar.gz | tar -xf - -C /usr/data/ || exit $?
         fi
 
         echo "INFO: Updating moonraker config ..."
@@ -809,7 +809,7 @@ function install_nginx() {
         if [ ! -d /usr/data/nginx ]; then
             echo
             echo "INFO: Installing nginx ..."
-            tar -zxf /usr/data/pellcorp/k1/packages/nginx.tar.gz -C / || exit $?
+            gzip -dc /usr/data/pellcorp/k1/packages/nginx.tar.gz | tar -xf - -C / || exit $?
         fi
 
         echo
@@ -2100,7 +2100,7 @@ function install_packages() {
 
         if [ "$mode" != "update" ] || [ ! -d /usr/data/bash ]; then
           echo "INFO: installing bash"
-          tar -zxf /usr/data/pellcorp/k1/packages/bash.tar.gz -C / || exit $?
+          gzip -dc /usr/data/pellcorp/k1/packages/bash.tar.gz | tar -xf - -C / || exit $?
           ln -sf /usr/data/bash/bin/bash /bin/
         fi
 
@@ -2112,7 +2112,7 @@ function install_packages() {
 
         if [ "$mode" != "update" ] || [ ! -f /usr/libexec/sftp-server ]; then
           echo "INFO: installing sftp-server"
-          tar -zxf /usr/data/pellcorp/k1/packages/sftp-server.tar.gz -C /usr/libexec/ || exit $?
+          gzip -dc /usr/data/pellcorp/k1/packages/sftp-server.tar.gz | tar -xf - -C /usr/libexec/ || exit $?
         fi
         
         echo "packages" >> /usr/data/pellcorp.done
@@ -2835,7 +2835,7 @@ fi
 
         # note the filename format is intentional so that the cleanup service and backups tool ignores it
         cd /usr/data
-        tar -zcf /usr/data/backups/creality-backup.tar.gz printer_data/config/*.cfg
+        tar -cf - printer_data/config/*.cfg | gzip > /usr/data/backups/creality-backup.tar.gz
         sync
         cd - > /dev/null
       fi
