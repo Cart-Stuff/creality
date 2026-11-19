@@ -89,11 +89,16 @@ if [ -d /opt ] && [ ! -L /opt ] && [ $(ls -1 /opt | wc -l) -eq 0 ]; then
   rm -rf /opt
 fi
 
-# some third party addons expect python to exist even though we only got python3 so just soft link it
-if [ ! -L /usr/bin/python ]; then
-  cd /usr/bin > /dev/null
-  ln -sf python3 python
-  cd - > /dev/null
+# some third party addons expect python to exist even though we only got python3 so just soft link it.
+# /usr/bin is read-only on newer Creality OS, so link into a writable dir on PATH.
+if [ ! -L /usr/bin/python ] && ! command -v python >/dev/null 2>&1; then
+  if [ -w /opt/bin ]; then
+    ln -sf "$(command -v python3)" /opt/bin/python
+  else
+    mkdir -p /usr/data/bin
+    ln -sf "$(command -v python3)" /usr/data/bin/python
+    export PATH=/usr/data/bin:$PATH
+  fi
 fi
 
 # we want a version of ln which magically removes the -r from the ln command
@@ -1228,8 +1233,10 @@ function install_grumpyscreen() {
 
         if [ ! -d "/usr/lib/python3.8/site-packages/matplotlib-2.2.3-py3.8.egg-info" ]; then
             echo "WARNING: Not replacing mathplotlib ft2font module. PSD graphs might not work!"
-        else
+        elif [ -w /usr/lib/python3.8/site-packages/matplotlib/ ]; then
             cp /usr/data/pellcorp/k1/files/ft2font.cpython-38-mipsel-linux-gnu.so /usr/lib/python3.8/site-packages/matplotlib/ || exit $?
+        else
+            echo "WARNING: /usr/lib is read-only; skipping ft2font replacement (PSD graphs may not work)"
         fi
 
         # remove all excludes from grumpyscreen
