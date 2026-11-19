@@ -847,6 +847,30 @@ function install_mainsail() {
     return 0
 }
 
+# Detect the RISC-V K1 revision (cmd_iap flasher + the CH32V serial devices).
+# On these boards we use the Cart-Stuff kalico fork (nov2026), which ships the
+# RISC-V MCU images in fw/K1-RISCV, instead of the GD32 pellcorp fork.
+is_riscv_k1() {
+    [ -x /usr/bin/cmd_iap ] && [ -e /dev/ttyS3 ] && [ -e /dev/ttyS4 ]
+}
+
+# Repo URL + branch to clone for this board.
+klipper_repo_url() {
+    if is_riscv_k1; then
+        echo "https://github.com/Cart-Stuff/kalico.git"
+    else
+        echo "https://github.com/pellcorp/${1}.git"
+    fi
+}
+
+klipper_repo_branch() {
+    if is_riscv_k1; then
+        echo "nov2026"
+    else
+        echo "jun2025"
+    fi
+}
+
 # note the klipper_fork will usually be 'klipper', just because of how the code works
 # but if --kalico is provided to the installer when klipper_fork will be kalico and we will clone
 # kalico, we don't install kalico unless its a new installation anyway so its fine
@@ -888,7 +912,11 @@ function install_klipper() {
 
         if [ ! -d /usr/data/klipper/.git ]; then
             echo "INFO: Installing ${klipper_fork} ..."
-            git clone https://github.com/pellcorp/${klipper_fork}.git /usr/data/klipper || exit $?
+            git clone $(klipper_repo_url $klipper_fork) /usr/data/klipper || exit $?
+            # RISC-V boards track the nov2026 branch (GD32 uses the default).
+            if is_riscv_k1; then
+                git -C /usr/data/klipper checkout $(klipper_repo_branch) || exit $?
+            fi
             echo
 
             [ -d /usr/share/klipper ] && rm -rf /usr/share/klipper
@@ -964,6 +992,22 @@ function install_klipper() {
         # a retail Nebula Pad does not support automatic firmware updates
         if [ "$MODEL" != "NEBULA" ]; then
             cp /usr/data/pellcorp/k1/services/S13mcu_update /etc/init.d/ || exit $?
+        fi
+
+        # RISC-V K1: stage the main motion MCU image (loaded by the bootloader,
+        # not cmd_iap) and the nozzle/bed images for S13mcu_update to flash.
+        # Stock images are backed up so the install is reversible.
+        if is_riscv_k1; then
+            echo "INFO: Staging RISC-V MCU firmware ..."
+            mkdir -p /usr/data/firmware-backup
+            if [ -f /lib/firmware/klipper_main_ipc.bin ] && [ ! -f /usr/data/firmware-backup/klipper_main_ipc.stock.bin ]; then
+                cp /lib/firmware/klipper_main_ipc.bin /usr/data/firmware-backup/klipper_main_ipc.stock.bin || exit $?
+            fi
+            if [ -f /usr/data/klipper/fw/K1-RISCV/klipper_main_ipc.bin ]; then
+                cp /usr/data/klipper/fw/K1-RISCV/klipper_main_ipc.bin /lib/firmware/klipper_main_ipc.bin || exit $?
+                sync
+                echo "INFO: RISC-V main MCU image installed; co-processor will reload on next boot"
+            fi
         fi
 
         cp /usr/data/pellcorp/config/client.cfg /usr/data/printer_data/config/
@@ -1580,8 +1624,8 @@ function setup_loadcells() {
         $CONFIG_HELPER --remove-include "loadcells_zoffset.cfg" || exit $?
 
         # RISC-V K1: the leveling (load-cell) MCU is on /dev/ttyS4 (CH32V), not
-        # the GD32 /dev/ttyS9. Detect it by the cmd_iap flasher + the device.
-        if [ -x /usr/bin/cmd_iap ] && [ -e /dev/ttyS4 ]; then
+        # the GD32 /dev/ttyS9.
+        if is_riscv_k1; then
           echo "INFO: RISC-V K1 detected, leveling MCU on /dev/ttyS4"
           $CONFIG_HELPER --file loadcells.cfg --replace-section-entry "mcu leveling_mcu" "serial" "/dev/ttyS4" || exit $?
         fi
