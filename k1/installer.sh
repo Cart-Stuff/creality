@@ -340,7 +340,11 @@ function install_config_updater() {
     if [ $? -ne 0 ]; then
         echo
         echo "INFO: Installing configupdater python package ..."
-        pip3 install /usr/data/pellcorp/packages/ConfigUpdater-3.2-py2.py3-none-any.whl
+        # /usr/lib is a read-only squashfs on newer Creality OS, so install to a
+        # writable target and put it on PYTHONPATH instead of system site-packages.
+        export PYTHONPATH=/usr/data/python-packages:$PYTHONPATH
+        mkdir -p /usr/data/python-packages
+        pip3 install --target=/usr/data/python-packages /usr/data/pellcorp/packages/ConfigUpdater-3.2-py2.py3-none-any.whl
 
         python3 -c 'from configupdater import ConfigUpdater' 2> /dev/null
         if [ $? -ne 0 ]; then
