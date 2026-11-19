@@ -974,12 +974,18 @@ function install_klipper() {
         fi
 
         if [ ! -d /usr/data/klipper/.git ]; then
-            echo "INFO: Installing ${klipper_fork} ..."
-            git clone --depth 1 $(klipper_repo_url $klipper_fork) /usr/data/klipper || exit $?
-            # RISC-V boards track the nov2026 branch (GD32 uses the default).
             if is_riscv_k1; then
-                git -C /usr/data/klipper fetch --depth 1 origin $(klipper_repo_branch) || exit $?
-                git -C /usr/data/klipper checkout $(klipper_repo_branch) || exit $?
+                # Low-RAM RISC-V boards (no kernel swap) OOM during git clone's
+                # pack step. Fetch the branch tarball instead: no git memory.
+                echo "INFO: Installing ${klipper_fork} (tarball) ..."
+                rm -rf /usr/data/klipper
+                mkdir -p /usr/data/klipper
+                curl -L "https://github.com/Cart-Stuff/kalico/archive/refs/heads/$(klipper_repo_branch).tar.gz" -o /usr/data/kalico.tar.gz || exit $?
+                gzip -dc /usr/data/kalico.tar.gz | tar -xf - -C /usr/data/klipper --strip-components=1 || exit $?
+                rm /usr/data/kalico.tar.gz
+            else
+                echo "INFO: Installing ${klipper_fork} ..."
+                git clone --depth 1 $(klipper_repo_url $klipper_fork) /usr/data/klipper || exit $?
             fi
             echo
 
@@ -1009,15 +1015,17 @@ function install_klipper() {
         fi
 
         cd /usr/data/klipper/
-        branch_ref=$(git rev-parse --abbrev-ref HEAD)
-        if [ "$branch_ref" = "jun2025" ]; then
-          git merge-base --is-ancestor $KLIPPER_MINIMUM_COMMIT HEAD 2> /dev/null
-          if [ $? -ne 0 ]; then
-            echo "INFO: Forcing update of klipper to latest of branch jun2025"
-            update_repo /usr/data/klipper jun2025 || exit $?
+        if [ -d .git ]; then
+          branch_ref=$(git rev-parse --abbrev-ref HEAD)
+          if [ "$branch_ref" = "jun2025" ]; then
+            git merge-base --is-ancestor $KLIPPER_MINIMUM_COMMIT HEAD 2> /dev/null
+            if [ $? -ne 0 ]; then
+              echo "INFO: Forcing update of klipper to latest of branch jun2025"
+              update_repo /usr/data/klipper jun2025 || exit $?
 
-            if [ "$mode" = "update" ]; then
-              update_klipper
+              if [ "$mode" = "update" ]; then
+                update_klipper
+              fi
             fi
           fi
         fi
