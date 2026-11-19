@@ -134,13 +134,15 @@ fi
 ln -sf /usr/data/pellcorp/ /root
 
 # A read-only root (squashfs) always reports 0 free, which is not "full".
-# Only enforce the free-space check when / is actually writable.
+# SAF_FORCE skips all free-space checks entirely.
 ROOT_RO=$(awk '$2 == "/" { print $4 }' /proc/mounts | head -1)
 case ",$ROOT_RO," in
   *",ro,"*) IS_RO=1 ;;
   *)         IS_RO=0 ;;
 esac
-if [ "$IS_RO" = "1" ]; then
+if [ -n "$SAF_FORCE" ]; then
+    echo "INFO: SAF_FORCE set, skipping free-space checks"
+elif [ "$IS_RO" = "1" ]; then
     echo "INFO: / is read-only (squashfs), skipping free-space check"
 else
     REMAINING_ROOT_DISK=$(df -m / | tail -1 | awk '{print $4}')
@@ -153,22 +155,24 @@ else
     fi
 fi
 
-REMAINING_TMP_DISK=$(df -m /tmp | tail -1 | awk '{print $4}')
-if [ $REMAINING_TMP_DISK -gt 25 ]; then
-    echo "INFO: There is $(df -h /tmp | tail -1 | awk '{print $4}') remaining on your /tmp partition"
-else
-    echo "CRITICAL: Remaining /tmp space is critically low!"
-    echo "CRITICAL: There is $(df -h /tmp | tail -1 | awk '{print $4}') remaining on your /tmp partition"
-    exit 1
-fi
+if [ -z "$SAF_FORCE" ]; then
+    REMAINING_TMP_DISK=$(df -m /tmp | tail -1 | awk '{print $4}')
+    if [ $REMAINING_TMP_DISK -gt 25 ]; then
+        echo "INFO: There is $(df -h /tmp | tail -1 | awk '{print $4}') remaining on your /tmp partition"
+    else
+        echo "CRITICAL: Remaining /tmp space is critically low!"
+        echo "CRITICAL: There is $(df -h /tmp | tail -1 | awk '{print $4}') remaining on your /tmp partition"
+        exit 1
+    fi
 
-REMAINING_DATA_DISK=$(df -m /usr/data | tail -1 | awk '{print $4}')
-if [ $REMAINING_DATA_DISK -gt 1000 ]; then
-    echo "INFO: There is $(df -h /usr/data | tail -1 | awk '{print $4}') remaining on your /usr/data partition"
-else
-    echo "CRITICAL: Remaining disk space is critically low!"
-    echo "CRITICAL: There is $(df -h /usr/data | tail -1 | awk '{print $4}') remaining on your /usr/data partition"
-    exit 1
+    REMAINING_DATA_DISK=$(df -m /usr/data | tail -1 | awk '{print $4}')
+    if [ $REMAINING_DATA_DISK -gt 1000 ]; then
+        echo "INFO: There is $(df -h /usr/data | tail -1 | awk '{print $4}') remaining on your /usr/data partition"
+    else
+        echo "CRITICAL: Remaining disk space is critically low!"
+        echo "CRITICAL: There is $(df -h /usr/data | tail -1 | awk '{print $4}') remaining on your /usr/data partition"
+        exit 1
+    fi
 fi
 echo
 
