@@ -4,10 +4,28 @@ if [ -z "$BASEDIR" ]; then
   BASEDIR=/usr/data/pellcorp
 fi
 
-CONFIG_HELPER="$BASEDIR/tools/config-helper.py"
+if command -v python3 >/dev/null 2>&1; then
+  OC_PY=python3
+elif [ -x /usr/data/python-hf/bin/python3 ]; then
+  OC_PY=/usr/data/python-hf/bin/python3
+else
+  OC_PY=python3
+fi
+CONFIG_HELPER="$OC_PY $BASEDIR/tools/config-helper.py"
 
 if [ -z "$MODEL" ]; then
-  MODEL=$(/usr/bin/get_sn_mac.sh model)
+  # Newer Creality OS removed get_sn_mac.sh; honor FORCE_MODEL, else default.
+  if [ -f /usr/bin/get_sn_mac.sh ]; then
+    MODEL=$(/usr/bin/get_sn_mac.sh model)
+  elif [ -n "$FORCE_MODEL" ]; then
+    case "$FORCE_MODEL" in
+      k1)  MODEL=CR-K1 ;;
+      k1m) MODEL="CR-K1 Max" ;;
+      *)   MODEL=$FORCE_MODEL ;;
+    esac
+  else
+    MODEL=CR-K1
+  fi
 fi
 
 if [ "$MODEL" = "CR-K1" ] || [ "$MODEL" = "K1C" ] || [ "$MODEL" = "K1 SE" ]; then

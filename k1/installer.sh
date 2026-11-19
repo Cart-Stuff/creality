@@ -205,7 +205,18 @@ fi
 cp /usr/data/pellcorp/k1/services/S45cleanup /etc/init.d/ || exit $?
 sync
 
-CONFIG_HELPER="/usr/data/pellcorp/tools/config-helper.py"
+# Resolve a usable python3 for the config-helper (the stock OS may not have it
+# on the default PATH).
+if command -v python3 >/dev/null 2>&1; then
+  OC_PY=python3
+elif [ -x /usr/data/python-hf/bin/python3 ]; then
+  OC_PY=/usr/data/python-hf/bin/python3
+elif [ -x /opt/bin/python3 ]; then
+  OC_PY=/opt/bin/python3
+else
+  OC_PY=python3
+fi
+CONFIG_HELPER="$OC_PY /usr/data/pellcorp/tools/config-helper.py"
 
 # stolen from https://github.com/lavabit/robox/
 function retry() {
