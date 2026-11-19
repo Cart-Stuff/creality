@@ -17,7 +17,9 @@ RET_ERROR=2
 
 # Detect the RISC-V K1 revision: cmd_iap exists and the RISC-V nozzle/bed
 # serial devices are present. This is independent of the GD32 board ID.
+# FORCE_RISCV=1 forces RISC-V mode when device paths differ on newer OS.
 is_riscv_k1() {
+    [ -n "$FORCE_RISCV" ] && return 0
     [ -x "$RISCV_IAP" ] && [ -e /dev/ttyS3 ] && [ -e /dev/ttyS4 ] \
         && [ -d "$FW_ROOT_DIR/$RISCV_FW_DIR" ]
 }

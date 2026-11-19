@@ -913,7 +913,9 @@ function install_mainsail() {
 # Detect the RISC-V K1 revision (cmd_iap flasher + the CH32V serial devices).
 # On these boards we use the Cart-Stuff kalico fork (nov2026), which ships the
 # RISC-V MCU images in fw/K1-RISCV, instead of the GD32 pellcorp fork.
+# FORCE_RISCV=1 forces RISC-V mode when the device paths differ on newer OS.
 is_riscv_k1() {
+    [ -n "$FORCE_RISCV" ] && return 0
     [ -x /usr/bin/cmd_iap ] && [ -e /dev/ttyS3 ] && [ -e /dev/ttyS4 ]
 }
 
