@@ -189,8 +189,12 @@ auto_update() {
         return $?
     fi
 
-    local model=$(get_sn_mac.sh model)
-    local board=$(get_sn_mac.sh board)
+    # Newer Creality OS removed get_sn_mac.sh. Allow a model/board override via
+    # the environment, and fall back to the K1 board layout for the GD32 path.
+    local model=${FORCE_SN_MODEL:-$(get_sn_mac.sh model 2>/dev/null)}
+    local board=${FORCE_SN_BOARD:-$(get_sn_mac.sh board 2>/dev/null)}
+    model=${model:-CR-K1}
+    board=${board:-CR4CU220812S12}
 
     local bed_serial=
     local mcu_serial=

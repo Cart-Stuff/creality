@@ -1,5 +1,6 @@
 #!/bin/sh
 
+# Newer Creality OS removed get_sn_mac.sh; default to the K1 model in that case.
 if [ -f /usr/bin/get_sn_mac.sh ]; then
   MODEL=$(/usr/bin/get_sn_mac.sh model)
   if [ "$MODEL" = "Nebula Pad" ]; then
@@ -9,8 +10,7 @@ if [ -f /usr/bin/get_sn_mac.sh ]; then
     MODEL=F001
   fi
 else
-  echo "FATAL: This script is not supported on non Creality OS!"
-  exit 0
+  MODEL=${FORCE_MODEL:-CR-K1}
 fi
 
 # Nebula doesnt have firmware we can update

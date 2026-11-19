@@ -3,7 +3,22 @@
 # this is the minimum pellcorp/klipper commit
 KLIPPER_MINIMUM_COMMIT=cbda3771337a62cf6f2eae1d5f96c3aa9609af76
 
-if [ -f /usr/bin/get_sn_mac.sh ]; then
+# FORCE_MODEL lets you run on a custom OS without get_sn_mac.sh / ota_info.
+# Set FORCE_MODEL=k1 (K1 / K1C / K1 SE) or FORCE_MODEL=k1m (K1 Max) to skip
+# Creality OS detection and the ota_version check entirely.
+if [ -n "$FORCE_MODEL" ]; then
+  case "$FORCE_MODEL" in
+    k1|k1m|f001|f002|f003|f004|f005)
+      model=$FORCE_MODEL
+      MODEL="forced-$FORCE_MODEL"
+      echo "INFO: Forcing model $model on a non-Creality OS"
+      ;;
+    *)
+      echo "FATAL: FORCE_MODEL must be one of k1, k1m, f001, f002, f003, f004, f005"
+      exit 1
+      ;;
+  esac
+elif [ -f /usr/bin/get_sn_mac.sh ]; then
   MODEL=$(/usr/bin/get_sn_mac.sh model)
   if [ "$MODEL" = "Nebula Pad" ]; then
     MODEL=NEBULA
@@ -57,7 +72,8 @@ else
 fi
 
 # we only need to verify we are not trying to install on really old k1 firmware
-if [ "$model" = "k1" ] || [ "$model" = "k1m" ]; then
+# (skipped when FORCE_MODEL is set, since a custom OS has no /etc/ota_info)
+if [ -z "$FORCE_MODEL" ] && { [ "$model" = "k1" ] || [ "$model" = "k1m" ]; }; then
     ota_version=$(cat /etc/ota_info | grep ota_version | awk -F '=' '{print $2}' | sed 's/^6.//g' | tr -d '.')
     if [ -z "$ota_version" ] || [ $ota_version -lt 1335 ]; then
       echo "FATAL: Firmware is too old, you must update to at least version 1.3.3.5 of Creality OS"
