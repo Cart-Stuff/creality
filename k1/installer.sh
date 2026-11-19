@@ -535,6 +535,21 @@ function disable_creality_services() {
         fi
     fi
 
+    # Newer Creality OS uses CS-series services for the stock UI (vectorp GUI,
+    # alchemistp, nexusp, solusp, onyxp, etc), not S99start_app. Stop and
+    # disable those too so the stock UI doesn't boot back up.
+    echo "INFO: Disabling Creality stock services (CS-series) ..."
+    for svc in CS55klipper_service CS56nexusp_service CS57solusp_service \
+               CS59quintusp CS59thirteenthp CS60gui_service CS60onyxp_service \
+               CS61alchemistp_service CS99mdns; do
+        if [ -f /etc/init.d/$svc ]; then
+            /etc/init.d/$svc stop > /dev/null 2>&1
+            rm -f /etc/init.d/$svc
+        fi
+    done
+    # Kill any stock UI processes still running so they don't paint over the new UI.
+    killall vectorp alchemistp nexusp solusp onyxp quintusp thirteenthp 2>/dev/null
+
     # this is mostly backwards compatible
     if [ -f /etc/init.d/S57klipper_mcu ]; then
         /etc/init.d/S55klipper_service stop > /dev/null 2>&1
