@@ -1,0 +1,34 @@
+#!/bin/sh
+# Make the read-only /usr/deplibs (squashfs) writable via an overlayfs upper
+# layer on /usr/data. Place in /etc/init.d/S00deplibs and run at boot (start).
+# This lets Python and the Simple AF installer write to the dependency libs.
+
+TARGET=/usr/deplibs
+UPPER=/usr/data/overlay/deplibs-upper
+WORK=/usr/data/overlay/deplibs-work
+
+case "$1" in
+  start)
+    mkdir -p "$UPPER" "$WORK"
+    if grep -q " $TARGET .*overlay" /proc/mounts; then
+      echo "$TARGET overlay already mounted"
+      exit 0
+    fi
+    mount -t overlay overlay \
+      -o lowerdir="$TARGET",upperdir="$UPPER",workdir="$WORK" "$TARGET"
+    if [ $? -eq 0 ]; then
+      echo "$TARGET overlay mounted (upper=$UPPER)"
+    else
+      echo "failed to mount $TARGET overlay"
+      exit 1
+    fi
+    ;;
+  stop)
+    umount "$TARGET" 2>/dev/null
+    ;;
+  *)
+    echo "Usage: $0 {start|stop}"
+    exit 1
+    ;;
+esac
+exit 0
