@@ -694,7 +694,7 @@ function install_moonraker() {
             [ -d /usr/data/moonraker-env ] && rm -rf /usr/data/moonraker-env
 
             echo
-            git clone https://github.com/Arksine/moonraker.git /usr/data/moonraker || exit $?
+            git clone --depth 1 https://github.com/Arksine/moonraker.git /usr/data/moonraker || exit $?
 
             # to protect against bricking we want to keep control of what commit we support
             cd /usr/data/moonraker
@@ -975,9 +975,10 @@ function install_klipper() {
 
         if [ ! -d /usr/data/klipper/.git ]; then
             echo "INFO: Installing ${klipper_fork} ..."
-            git clone $(klipper_repo_url $klipper_fork) /usr/data/klipper || exit $?
+            git clone --depth 1 $(klipper_repo_url $klipper_fork) /usr/data/klipper || exit $?
             # RISC-V boards track the nov2026 branch (GD32 uses the default).
             if is_riscv_k1; then
+                git -C /usr/data/klipper fetch --depth 1 origin $(klipper_repo_branch) || exit $?
                 git -C /usr/data/klipper checkout $(klipper_repo_branch) || exit $?
             fi
             echo
