@@ -103,8 +103,10 @@ fi
 rm -rf /root/.cache
 sync
 
-# the installer can switch branches even on a helper script printer
-if [ "$1" != "--branch" ] && [ "$1" != "--update-branch" ]; then
+# the installer can switch branches even on a helper script printer.
+# SAF_FORCE=1 skips the clean-state guard (e.g. an Entware /opt you want to
+# keep, or Helper Script you know about) without a factory reset.
+if [ -z "$SAF_FORCE" ] && [ "$1" != "--branch" ] && [ "$1" != "--update-branch" ]; then
   if [ -d /usr/data/helper-script ] || [ -f /usr/data/fluidd.sh ] || [ -f /usr/data/mainsail.sh ]; then
       if [ -f /usr/data/pellcorp.done ]; then
           echo "FATAL: You have broken your Simple AF install by corrupting it with Helper Script!"
@@ -113,7 +115,7 @@ if [ "$1" != "--branch" ] && [ "$1" != "--update-branch" ]; then
       fi
       exit 1
   elif [ -d /opt ] && [ ! -L /opt ]; then
-     echo "FATAL: You must factory reset the printer before installing Simple AF!"
+     echo "FATAL: You must factory reset the printer before installing Simple AF! (or set SAF_FORCE=1 to keep /opt)"
      exit 1
   elif [ "$MODEL" = "NEBULA" ] && [ ! -f /usr/data/pellcorp.done ] && [ ! -d /usr/data/pellcorp-backups ] && [ -f /usr/data/printer_data/config/printer.cfg ]; then
      echo "FATAL: You must factory reset the printer before installing Simple AF!"
