@@ -2112,6 +2112,7 @@ function install_packages() {
 
         if [ "$mode" != "update" ] || [ ! -f /usr/libexec/sftp-server ]; then
           echo "INFO: installing sftp-server"
+          mkdir -p /usr/libexec
           gzip -dc /usr/data/pellcorp/k1/packages/sftp-server.tar.gz | tar -xf - -C /usr/libexec/ || exit $?
         fi
         
