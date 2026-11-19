@@ -1579,6 +1579,13 @@ function setup_loadcells() {
         $CONFIG_HELPER --add-include "loadcells.cfg" || exit $?
         $CONFIG_HELPER --remove-include "loadcells_zoffset.cfg" || exit $?
 
+        # RISC-V K1: the leveling (load-cell) MCU is on /dev/ttyS4 (CH32V), not
+        # the GD32 /dev/ttyS9. Detect it by the cmd_iap flasher + the device.
+        if [ -x /usr/bin/cmd_iap ] && [ -e /dev/ttyS4 ]; then
+          echo "INFO: RISC-V K1 detected, leveling MCU on /dev/ttyS4"
+          $CONFIG_HELPER --file loadcells.cfg --replace-section-entry "mcu leveling_mcu" "serial" "/dev/ttyS4" || exit $?
+        fi
+
         if [ -f /usr/data/pellcorp/k1/patches/loadcells.cfg.${model} ]; then
           $CONFIG_HELPER --file loadcells.cfg --patches /usr/data/pellcorp/k1/patches/loadcells.cfg.${model} --quiet || exit $?
         fi
