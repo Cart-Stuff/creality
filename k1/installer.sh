@@ -183,8 +183,18 @@ if [ ! -f /etc/pellcorp ]; then
   cp /usr/data/pellcorp/k1/services/S50dropbear /etc/init.d/ || exit $?
 
   # for k1 the installed curl does not do ssl, so we replace it first
-  # and we can then make use of it going forward
-  cp /usr/data/pellcorp/k1/tools/curl /usr/bin/curl || exit $?
+  # and we can then make use of it going forward.
+  # Newer Creality OS already ships a working curl, and /usr/bin is read-only,
+  # so only install the bundled curl if none is present.
+  if ! command -v curl >/dev/null 2>&1; then
+    if [ -w /opt/bin ]; then
+      cp /usr/data/pellcorp/k1/tools/curl /opt/bin/curl || exit $?
+    else
+      mkdir -p /usr/data/bin
+      cp /usr/data/pellcorp/k1/tools/curl /usr/data/bin/curl || exit $?
+      export PATH=/usr/data/bin:$PATH
+    fi
+  fi
 fi
 
 cp /usr/data/pellcorp/k1/services/S45cleanup /etc/init.d/ || exit $?
